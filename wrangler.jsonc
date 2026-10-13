@@ -1,0 +1,15 @@
+{
+  "name": "cf-album",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-13",
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "ALBUM_KV",
+      "id": "1e2b496390e047de823170f4cbe49b91"
+    }
+  ]
+}
