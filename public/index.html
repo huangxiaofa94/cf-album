@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相册系统</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+body{background:#111;color:#fff;min-height:100vh;padding:20px}
+.login-wrap{max-width:400px;margin:100px auto;background:#222;padding:32px;border-radius:12px}
+.login-wrap h2{text-align:center;margin-bottom:24px;color:#fff}
+.form-item{margin-bottom:16px}
+.form-item label{display:block;margin-bottom:8px;color:#ccc}
+.form-item input{width:100%;padding:12px;font-size:16px;border-radius:6px;border:none;outline:none;background:#333;color:#fff}
+#loginBtn{width:100%;padding:14px;background:#2563eb;border:none;border-radius:6px;color:#fff;font-size:16px;cursor:pointer}
+#gallery{display:none}
+.upload-area{margin-bottom:24px;padding:20px;border:1px dashed #444;border-radius:8px;text-align:center}
+#fileInput{display:none}
+.upload-btn{padding:10px 16px;background:#2563eb;border-radius:6px;cursor:pointer;display:inline-block}
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.img-grid img{width:100%;height:180px;object-fit:cover;border-radius:8px;background:#222}
+.logout-btn{margin-bottom:20px;padding:8px 12px;background:#dc2626;border:none;border-radius:6px;color:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="login-wrap" id="loginBox">
+  <h2>🔐 相册登录</h2>
+  <div class="form-item">
+    <label>账号</label>
+    <input id="username" value="admin">
+  </div>
+  <div class="form-item">
+    <label>密码</label>
+    <input id="password" type="password" placeholder="输入密码">
+  </div>
+  <button id="loginBtn">登录</button>
+</div>
+
+<div id="gallery">
+  <button class="logout-btn" id="logoutBtn">退出登录</button>
+  <div class="upload-area">
+    <label class="upload-btn">选择图片上传
+      <input type="file" id="fileInput" accept="image/*">
+    </label>
+    <p style="margin-top:8px;color:#aaa">最大5MB</p>
+  </div>
+  <div class="img-grid" id="imgContainer"></div>
+</div>
+
+<script>
+const tokenKey = "album_token";
+const loginBox = document.getElementById("loginBox");
+const gallery = document.getElementById("gallery");
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const fileInput = document.getElementById("fileInput");
+const imgContainer = document.getElementById("imgContainer");
+const usernameInput = document.getElementById("username");
+const passwordInput = document.getElementById("password");
+
+(async function init(){
+  const token = localStorage.getItem(tokenKey);
+  if(token){
+    const res = await fetch("/api/verify",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({token})
+    });
+    const data = await res.json();
+    if(data.ok){
+      showGallery();
+      loadImageList();
+    }else{
+      localStorage.removeItem(tokenKey);
+    }
+  }
+})();
+
+loginBtn.onclick = async function(){
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value.trim();
+  if(!username || !password){
+    alert("账号密码不能为空");
+    return;
+  }
+  try{
+    const resp = await fetch("/api/login",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({username,password})
+    });
+    const data = await resp.json();
+    if(data.ok){
+      localStorage.setItem(tokenKey, data.token);
+      showGallery();
+      loadImageList();
+    }else{
+      alert(data.msg || "登录失败");
+    }
+  }catch(e){
+    alert("网络请求异常");
+  }
+};
+
+logoutBtn.onclick = async function(){
+  await fetch("/api/logout",{
+    method:"POST",
+    headers:{"Authorization": localStorage.getItem(tokenKey)}
+  });
+  localStorage.removeItem(tokenKey);
+  loginBox.style.display="block";
+  gallery.style.display="none";
+};
+
+fileInput.onchange = async function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const formData = new FormData();
+  formData.append("image",file);
+  try{
+    const resp = await fetch("/api/upload",{
+      method:"POST",
+      headers:{"Authorization": localStorage.getItem(tokenKey)},
+      body:formData
+    });
+    const data = await resp.json();
+    if(data.ok){
+      loadImageList();
+    }else{
+      alert(data.msg || "上传失败");
+    }
+  }catch(err){
+    alert("上传网络异常");
+  }
+};
+
+async function loadImageList(){
+  const resp = await fetch("/api/list",{
+    headers:{"Authorization": localStorage.getItem(tokenKey)}
+  });
+  const list = await resp.json();
+  imgContainer.innerHTML = "";
+  list.forEach(url=>{
+    const img = document.createElement("img");
+    img.src = url;
+    img.loading="lazy";
+    imgContainer.appendChild(img);
+  })
+}
+
+function showGallery(){
+  loginBox.style.display="none";
+  gallery.style.display="block";
+}
+</script>
+</body>
+</html>
